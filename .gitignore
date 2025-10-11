@@ -1,0 +1,39 @@
+# --- ENV & Secrets ---
+.env
+*.key
+*.pem
+.state_commands.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --- Virtual Environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Logs & Temp files ---
+*.log
+*.bak
+*.tmp
+*.swp
+
+# --- DB / Persistent data ---
+*.db
+*.sqlite3
+whatsapp-mcp/whatsapp-bridge/store/
+whatsapp-mcp/whatsapp-bridge/*.db
+
+# --- Docker ---
+*.pid
+*.sock
+
+# --- Misc ---
+.DS_Store
+.idea/
+.vscode/
+
