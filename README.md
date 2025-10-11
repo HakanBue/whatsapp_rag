@@ -4,10 +4,8 @@ WhatsApp MCP Bot
 This project provides a self-hosted WhatsApp Assistant powered by the Model Context Protocol (MCP) and the OpenAI API.
 It lets you interact with an AI via WhatsApp — send messages, fetch contacts, and automate tasks — all running locally or on your own VPS.
 
--------------------------------------------------------------------------------
 
-Overview
---------
+# Overview
 
 This repository combines:
 
@@ -22,10 +20,8 @@ This repository combines:
   Original project: https://github.com/lharries/whatsapp-mcp  
   The client automatically starts the MCP server as a subprocess — you do NOT need to run it manually.
 
-------------------------------------------------------------------------------
 
-Origin and modifications
-------------------------
+# Origin and modifications
 
 This project is based on the open-source "whatsapp-mcp" repository by markormesher / lharries.  
 Original repository: https://github.com/lharries/whatsapp-mcp  
@@ -42,24 +38,21 @@ Changes made in this fork include:
 
 The goal of the modifications were simply allowing communication between the mcp server and a self written MCP Client using FastMCP 2
 
--------------------------------------------------------------------------------
 
 # Example 
 EXAMPLE IMAGE PLACEHOLDER
 
----------------
 
-Getting started
----------------
+# Getting started
 
-1. Prerequisites
+## Prerequisites
 
 - Python 3.10 or newer  
 - Go installed (for the bridge)  
 - An OpenAI API key  
 - A WhatsApp account linked to WhatsApp Web  
 
-## Setup
+# Setup
 
 ### 1. Clone and set up the environment
 git clone https://github.com/HakanBue/whatsapp_rag.git
@@ -106,7 +99,6 @@ python client.py
 - **Input:** !n send a message to 012345678 saying "Hello from MCP!" **Note the !n prefix (might be changed later)**
 - **Output:** The message "Hello from MCP!" has been successfully sent to 012345678
 
--------------------------------------------------------------------------------
 
 Future (planned)
 ----------------
@@ -118,7 +110,6 @@ Future (planned)
 - Optional LLM model / provider selection
 - overall QoL features 
 
--------------------------------------------------------------------------------
 
 License and attribution
 -----------------------
@@ -131,7 +122,6 @@ When redistributing, please include attribution:
 "This project is based on 'whatsapp-mcp' (commit 7d6a06dcdce1f01dfb24f60e1030d5efba9f3b88)
 by markormesher/lharries, modified by HakanBue in 2025."
 
--------------------------------------------------------------------------------
 
 Credits
 -------
