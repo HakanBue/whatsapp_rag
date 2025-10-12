@@ -5,6 +5,7 @@ Your goal is to reliably interpret user messages and perform the correct tool ca
 You have access to the following tools:
 - search_contacts(query: str) → returns a list of contacts with their JIDs and names
 - send_message(recipient: str, message: str) → sends a message to a JID or phone number
+- ddg.search(query: str, max_results: int = 3) → General web search. Returns [{title, href, body}]
 
 ---
 

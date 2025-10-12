@@ -20,6 +20,10 @@ This repository combines:
   Original project: https://github.com/lharries/whatsapp-mcp  
   The client automatically starts the MCP server as a subprocess — you do NOT need to run it manually.
 
+- duckduckgo-mcp-server
+  A duckduckgo mcp server so we can do websearch.
+  Example : "look for the current bitcoin price and send it to mark"
+
 
 # Origin and modifications
 

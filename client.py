@@ -25,7 +25,6 @@ STATE_FILE = ".state_commands.json"
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 VENV_PYTHON = os.path.join(BASE_DIR, "venv", "bin", "python")  # change to ".venv" if that's your venv
 SERVER_MAIN = os.path.join(BASE_DIR, "whatsapp-mcp", "whatsapp-mcp-server", "main.py")
-
 if not os.path.exists(VENV_PYTHON):
     VENV_PYTHON = sys.executable
 if not os.path.exists(SERVER_MAIN):
@@ -40,7 +39,13 @@ MCP_CONFIG = {
             "command": VENV_PYTHON,
             "args": ["-u", SERVER_MAIN],
             "env": {},
-        }
+        },
+        "duckduckgo": {  # <-- new search server
+            "transport": "stdio",
+            "command": "/root/whatsapp_rag/.venv/bin/duckduckgo-mcp-server",
+            "args": [],
+            "env": {},
+        },
     }
 }
 
