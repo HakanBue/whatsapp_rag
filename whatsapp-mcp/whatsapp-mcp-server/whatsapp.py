@@ -8,6 +8,7 @@ import json
 import audio
 
 MESSAGES_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'whatsapp-bridge', 'store', 'messages.db')
+WHATSAPP_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'whatsapp-bridge', 'store', 'whatsapp.db')
 WHATSAPP_API_BASE_URL = "http://localhost:8080/api"
 
 @dataclass
@@ -390,46 +391,47 @@ def list_chats(
             conn.close()
 
 
-def search_contacts(query: str) -> List[Contact]:
-    """Search contacts by name or phone number."""
-    try:
-        conn = sqlite3.connect(MESSAGES_DB_PATH)
-        cursor = conn.cursor()
-        
-        # Split query into characters to support partial matching
-        search_pattern = '%' +query + '%'
-        
-        cursor.execute("""
-            SELECT DISTINCT 
-                jid,
-                name
-            FROM chats
-            WHERE 
-                (LOWER(name) LIKE LOWER(?) OR LOWER(jid) LIKE LOWER(?))
-                AND jid NOT LIKE '%@g.us'
-            ORDER BY name, jid
-            LIMIT 50
-        """, (search_pattern, search_pattern))
-        
-        contacts = cursor.fetchall()
-        
-        result = []
-        for contact_data in contacts:
-            contact = Contact(
-                phone_number=contact_data[0].split('@')[0],
-                name=contact_data[1],
-                jid=contact_data[0]
-            )
-            result.append(contact)
-            
-        return result
-        
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
-        return []
-    finally:
-        if 'conn' in locals():
-            conn.close()
+def search_contacts(query: str):
+    pattern = f"%{query}%"
+
+    conn = sqlite3.connect(WHATSAPP_DB_PATH)  # <-- whatsapp.db
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("ATTACH ? AS msgdb", (MESSAGES_DB_PATH,))
+
+    sql = """
+    WITH c1 AS (
+      SELECT
+        their_jid AS jid,
+        COALESCE(full_name, first_name, push_name, business_name, their_jid) AS display_name
+      FROM whatsmeow_contacts
+      WHERE
+        LOWER(COALESCE(full_name, first_name, push_name, business_name, '')) LIKE LOWER(?)
+        OR LOWER(their_jid) LIKE LOWER(?)
+        OR LOWER(COALESCE(redacted_phone, '')) LIKE LOWER(?)
+    ),
+    c2 AS (
+      SELECT
+        jid,
+        COALESCE(name, jid) AS display_name
+      FROM msgdb.chats
+      WHERE
+        LOWER(COALESCE(name, '')) LIKE LOWER(?)
+        AND jid NOT LIKE '%@g.us'       -- exclude groups
+    )
+    SELECT DISTINCT jid, display_name
+    FROM c1
+    UNION
+    SELECT DISTINCT jid, display_name
+    FROM c2
+    ORDER BY display_name, jid
+    LIMIT 50;
+    """
+    cur.execute(sql, (pattern, pattern, pattern, pattern))
+    rows = cur.fetchall()
+    return [{"jid": r["jid"], "name": r["display_name"]} for r in rows]
+
+
 
 
 def get_contact_chats(jid: str, limit: int = 20, page: int = 0) -> List[Chat]:

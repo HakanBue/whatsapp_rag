@@ -183,7 +183,8 @@ async def run():
                     {"role": "user", "content": raw},
                 ]
 
-                for _ in range(6):
+                for step in range(6):
+                    print(f"\n=== Step {step + 1} ===")
                     resp = oai.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=conversation,
@@ -192,6 +193,15 @@ async def run():
                         temperature=0.2,
                     )
                     ai_msg = resp.choices[0].message
+
+                    if ai_msg.tool_calls:
+                        print("\n--- TOOL CALLS DETECTED ---")
+                        for call in ai_msg.tool_calls:
+                            print(f"Tool name: {call.function.name}")
+                            print(f"Arguments: {call.function.arguments}")
+                            print("----------------------------")
+                    else:
+                        print("\n(No tool calls made in this step)")
 
                     if ai_msg.tool_calls:
                         # 1) append assistant message with tool_calls
