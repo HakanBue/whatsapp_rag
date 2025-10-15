@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenStreetMap Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- html2canvas for screenshot functionality -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .info-panel {
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .map-title {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            font-size: 24px;
+            font-weight: bold;
+            max-width: 50%;
+            text-align: right;
+        }
+        .search-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 300px;
+        }
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            font-size: 16px;
+        }
+        .search-results {
+            margin-top: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .search-result-item:hover {
+            background-color: #f5f5f5;
+        }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="mapTitle" class="map-title" style="display:none;"></div>
+    
+    <!-- Search Box -->
+    <div class="search-container">
+        <input type="text" id="searchBox" class="search-box" placeholder="Search for a place..." autocomplete="off">
+        <div id="searchResults" class="search-results"></div>
+    </div>
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Storage for created objects to allow removal/updates
+        const mapObjects = {
+            markers: {},
+            polygons: {},
+            lines: {}
+        };
+        
+        // Counter for generating unique IDs
+        let objectCounter = 0;
+        
+        // Send initial view to server
+        sendViewChanged();
+        
+        // Map event handlers
+        map.on('moveend', sendViewChanged);
+        map.on('zoomend', sendViewChanged);
+        
+        // Function to send view changes to the server
+        function sendViewChanged() {
+            const center = map.getCenter();
+            const bounds = map.getBounds();
+            const zoom = map.getZoom();
+            
+            fetch('/api/viewChanged', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    center: [center.lat, center.lng],
+                    zoom: zoom,
+                    bounds: [
+                        [bounds.getSouth(), bounds.getWest()],
+                        [bounds.getNorth(), bounds.getEast()]
+                    ]
+                })
+            })
+            .catch(error => console.error('Error sending view change:', error));
+        }
+        
+        // Search functionality
+        const searchBox = document.getElementById('searchBox');
+        const searchResults = document.getElementById('searchResults');
+        let searchTimeout = null;
+        
+        // Add event listener for search input
+        searchBox.addEventListener('input', function() {
+            // Clear previous timeout
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            const query = this.value.trim();
+            
+            // Hide results if query is empty
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            // Set a timeout to avoid making too many requests while typing
+            searchTimeout = setTimeout(() => {
+                searchPlace(query);
+            }, 500);
+        });
+        
+        // Function to search for a place using Nominatim
+        function searchPlace(query) {
+            // Nominatim API URL
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    displaySearchResults(data);
+                })
+                .catch(error => {
+                    console.error('Error searching for place:', error);
+                });
+        }
+        
+        // Function to display search results
+        function displaySearchResults(results) {
+            // Clear previous results
+            searchResults.innerHTML = '';
+            
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+                searchResults.style.display = 'block';
+                return;
+            }
+            
+            // Create result items
+            results.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'search-result-item';
+                resultItem.textContent = result.display_name;
+                
+                // Add click event to go to the location
+                resultItem.addEventListener('click', () => {
+                    goToLocation(result);
+                    searchResults.style.display = 'none';
+                    searchBox.value = result.display_name;
+                });
+                
+                searchResults.appendChild(resultItem);
+            });
+            
+            // Show results
+            searchResults.style.display = 'block';
+        }
+        
+        // Function to go to a location
+        function goToLocation(location) {
+            const lat = parseFloat(location.lat);
+            const lon = parseFloat(location.lon);
+            
+            // Create a marker at the location
+            const markerId = showMarker([lat, lon], location.display_name, { openPopup: true });
+            
+            // Set the view to the location
+            map.setView([lat, lon], 14);
+        }
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.search-container')) {
+                searchResults.style.display = 'none';
+            }
+        });
+        
+        // Function to capture and send a screenshot of the map
+        function captureMapScreenshot() {
+            console.log('Capturing map screenshot...');
+            
+            // Use html2canvas to capture the map element
+            html2canvas(document.getElementById('map')).then(canvas => {
+                // Convert canvas to base64 image data
+                const imageData = canvas.toDataURL('image/png');
+                
+                // Send the image data to the server
+                fetch('/api/screenshot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: imageData
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Screenshot sent to server:', data);
+                })
+                .catch(error => {
+                    console.error('Error sending screenshot:', error);
+                });
+            });
+        }
+        
+        // Function to perform a geolocate search and send results back to server
+        function performGeolocateSearch(requestId, query) {
+            console.log(`Performing geolocate search for "${query}" (request ID: ${requestId})`);
+            
+            // Nominatim API URL
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // Send the results back to the server
+                    fetch('/api/geolocateResponse', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            requestId: requestId,
+                            results: data
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Geolocate response sent to server:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error sending geolocate response:', error);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error performing geolocate search:', error);
+                    // Send empty results in case of error
+                    fetch('/api/geolocateResponse', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            requestId: requestId,
+                            results: []
+                        })
+                    });
+                });
+        }
+        
+        // SSE connection to receive commands from the server
+        function connectSSE() {
+            const eventSource = new EventSource('/api/sse');
+            
+            eventSource.onopen = function() {
+                console.log('SSE connection established');
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('SSE connection error:', error);
+                eventSource.close();
+                // Try to reconnect after a delay
+                setTimeout(connectSSE, 5000);
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleServerCommand(message);
+                } catch (error) {
+                    console.error('Error processing SSE message:', error);
+                }
+            };
+        }
+        
+        // Handle commands received from the server
+        function handleServerCommand(message) {
+            console.log('Received server command:', message);
+            
+            switch (message.type) {
+                case 'SHOW_POLYGON':
+                    showPolygon(message.data.coordinates, message.data.options);
+                    break;
+                    
+                case 'SHOW_MARKER':
+                    showMarker(message.data.coordinates, message.data.text, message.data.options);
+                    break;
+                    
+                case 'SHOW_LINE':
+                    showLine(message.data.coordinates, message.data.options);
+                    break;
+                    
+                case 'SET_VIEW':
+                    setView(message.data);
+                    break;
+                
+                case 'SET_TITLE':
+                    setTitle(message.data.title, message.data.options);
+                    break;
+                
+                case 'CAPTURE_SCREENSHOT':
+                    captureMapScreenshot();
+                    break;
+                
+                case 'GEOLOCATE':
+                    performGeolocateSearch(message.data.requestId, message.data.query);
+                    break;
+                
+                case 'ping':
+                    // Just a keepalive, do nothing
+                    break;
+                    
+                case 'connected':
+                    console.log('Connected to server with ID:', message.id);
+                    break;
+                    
+                default:
+                    console.warn('Unknown command type:', message.type);
+            }
+        }
+        
+        // Function to show a polygon on the map
+        function showPolygon(coordinates, options = {}) {
+            const id = 'polygon_' + (objectCounter++);
+            
+            // Remove existing polygon with the same ID if it exists
+            if (mapObjects.polygons[id]) {
+                map.removeLayer(mapObjects.polygons[id]);
+            }
+            
+            // Create and add the polygon
+            const polygon = L.polygon(coordinates, options).addTo(map);
+            mapObjects.polygons[id] = polygon;
+            
+            // Fit map to polygon bounds if requested
+            if (options.fitBounds) {
+                map.fitBounds(polygon.getBounds());
+            }
+            
+            return id;
+        }
+        
+        // Function to show a marker on the map
+        function showMarker(coordinates, text = null, options = {}) {
+            const id = 'marker_' + (objectCounter++);
+            
+            // Remove existing marker with the same ID if it exists
+            if (mapObjects.markers[id]) {
+                map.removeLayer(mapObjects.markers[id]);
+            }
+            
+            // Create and add the marker
+            const marker = L.marker(coordinates, options).addTo(map);
+            
+            // Add popup if text is provided
+            if (text) {
+                marker.bindPopup(text);
+                if (options.openPopup) {
+                    marker.openPopup();
+                }
+            }
+            
+            mapObjects.markers[id] = marker;
+            return id;
+        }
+        
+        // Function to set the map view
+        function setView(viewOptions) {
+            if (viewOptions.bounds) {
+                map.fitBounds(viewOptions.bounds);
+            } else if (viewOptions.center && viewOptions.zoom) {
+                map.setView(viewOptions.center, viewOptions.zoom);
+            } else if (viewOptions.center) {
+                map.panTo(viewOptions.center);
+            } else if (viewOptions.zoom) {
+                map.setZoom(viewOptions.zoom);
+            }
+        }
+        
+        // Function to set the map title
+        function setTitle(title, options = {}) {
+            const titleElement = document.getElementById('mapTitle');
+            
+            if (!title) {
+                titleElement.style.display = 'none';
+                return;
+            }
+            
+            // Set title text
+            titleElement.textContent = title;
+            titleElement.style.display = 'block';
+            
+            // Apply custom styling if provided
+            if (options.fontSize) {
+                titleElement.style.fontSize = options.fontSize;
+            }
+            
+            if (options.color) {
+                titleElement.style.color = options.color;
+            }
+            
+            if (options.backgroundColor) {
+                titleElement.style.backgroundColor = options.backgroundColor;
+            }
+        }
+        
+        // Function to show a line (polyline) on the map
+        function showLine(coordinates, options = {}) {
+            const id = 'line_' + (objectCounter++);
+            
+            // Remove existing line with the same ID if it exists
+            if (mapObjects.lines[id]) {
+                map.removeLayer(mapObjects.lines[id]);
+            }
+            
+            // Create and add the line
+            const line = L.polyline(coordinates, options).addTo(map);
+            mapObjects.lines[id] = line;
+            
+            // Fit map to line bounds if requested
+            if (options.fitBounds) {
+                map.fitBounds(line.getBounds());
+            }
+            
+            return id;
+        }
+        
+        // Connect to the SSE endpoint
+        connectSSE();
+    </script>
+</body>
+</html> 

@@ -1,7 +1,7 @@
 # client.py
 import os, sys, json, asyncio, hashlib
 from dotenv import load_dotenv
-from prompt import COMMANDS_GROUP_SYSTEM_PROMPT as SYSTEM_PROMPT
+from prompt import SYSTEM_PROMPT
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -40,14 +40,33 @@ MCP_CONFIG = {
             "args": ["-u", SERVER_MAIN],
             "env": {},
         },
-        "duckduckgo": {  # <-- new search server
+        "duckduckgo": {
             "transport": "stdio",
             "command": "/root/whatsapp_rag/.venv/bin/duckduckgo-mcp-server",
             "args": [],
             "env": {},
         },
+        "osm-postgres": {
+  "transport": "stdio",
+  "command": "/root/whatsapp_rag/.venv/bin/uv",
+  "args": [
+    "run",
+    "--env-file", "/root/whatsapp_rag/.env",     # absolute path
+    "--with", "mcp[cli]",
+    "--with", "psycopg2-binary",
+    "--with-editable", "/root/whatsapp_rag/osm-mcp",
+    "--directory", "/root/whatsapp_rag/osm-mcp",
+    "mcp", "run", "mcp.py"
+  ],
+  "env": {
+    "FLASK_HOST": "0.0.0.0",
+    "FLASK_PORT": "8889"
+  }
+},
     }
 }
+
+
 
 def load_state():
     if os.path.exists(STATE_FILE):
