@@ -1,7 +1,7 @@
 # client.py
 import os, sys, json, asyncio, hashlib
 from dotenv import load_dotenv
-from prompt import COMMANDS_GROUP_SYSTEM_PROMPT as SYSTEM_PROMPT
+from prompt import SYSTEM_PROMPT
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -23,10 +23,9 @@ POLL_INTERVAL_SEC = 3
 STATE_FILE = ".state_commands.json"
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-VENV_PYTHON = os.path.join(BASE_DIR, "venv", "bin", "python")  # change to ".venv" if that's your venv
+PYTHON_CMD = sys.executable
 SERVER_MAIN = os.path.join(BASE_DIR, "whatsapp-mcp", "whatsapp-mcp-server", "main.py")
-if not os.path.exists(VENV_PYTHON):
-    VENV_PYTHON = sys.executable
+
 if not os.path.exists(SERVER_MAIN):
     raise RuntimeError(f"Cannot find server main.py at {SERVER_MAIN}")
 
@@ -36,13 +35,13 @@ MCP_CONFIG = {
     "mcpServers": {
         "whatsapp": {
             "transport": "stdio",
-            "command": VENV_PYTHON,
+            "command": PYTHON_CMD,
             "args": ["-u", SERVER_MAIN],
             "env": {},
         },
-        "duckduckgo": {  # <-- new search server
+        "duckduckgo": {
             "transport": "stdio",
-            "command": "/root/whatsapp_rag/.venv/bin/duckduckgo-mcp-server",
+            "command": "duckduckgo-mcp-server",
             "args": [],
             "env": {},
         },

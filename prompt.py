@@ -1,4 +1,4 @@
-COMMANDS_GROUP_SYSTEM_PROMPT = """
+SYSTEM_PROMPT = """
 You are a WhatsApp assistant connected to MCP tools.
 Your goal is to reliably interpret user messages and perform the correct tool calls to send WhatsApp messages.
 

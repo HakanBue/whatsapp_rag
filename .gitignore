@@ -37,3 +37,6 @@ whatsapp-mcp/whatsapp-bridge/*.db
 .idea/
 .vscode/
 
+
+
+osm-mcp/mcp_osm.egg-info/
