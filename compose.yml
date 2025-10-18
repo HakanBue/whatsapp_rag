@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-mcp/whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: whatsapp-bridge
+    ports:
+      - "${BRIDGE_PORT:-3000}:3000"
+    volumes:
+      - ./whatsapp-mcp/whatsapp-bridge/store:/app/store
+    environment:
+      - MCP_SERVER_URL=http://whatsapp-mcp-server:8000
+    depends_on:
+      - whatsapp-mcp-server
+    restart: unless-stopped
+
+  whatsapp-mcp-server:
+    build:
+      context: ./whatsapp-mcp/whatsapp-mcp-server
+      dockerfile: Dockerfile
+    container_name: whatsapp-mcp-server
+    ports:
+      - "${MCP_SERVER_PORT:-8000}:8000"
+    environment:
+      - DUCKDUCKGO_URL=http://duckduckgo-mcp:8080
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - duckduckgo-mcp
+    restart: unless-stopped
+
+  duckduckgo-mcp:
+    build:
+      context: ./duckduckgo-mcp
+      dockerfile: Dockerfile
+    container_name: duckduckgo-mcp
+    ports:
+      - "${DUCK_PORT:-8080}:8080"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: whatsapp-mcp-net
+
